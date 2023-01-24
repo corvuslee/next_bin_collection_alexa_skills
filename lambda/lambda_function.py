@@ -44,9 +44,9 @@ class LaunchRequestHandler(AbstractRequestHandler):
         # type: (HandlerInput) -> Response
         speak_output = f"{bin_type} will be collected on {collection_date}"
 
-        #====================================================================
+        # ====================================================================
         # Add a visual with Alexa Layouts
-        #====================================================================
+        # ====================================================================
         # Import an Alexa Presentation Language (APL) template
         with open("./documents/APL_simple.json") as apl_doc:
             apl_simple = json.load(apl_doc)
@@ -58,21 +58,20 @@ class LaunchRequestHandler(AbstractRequestHandler):
                         document=apl_simple,
                         datasources={
                             "myData": {
-                                #====================================================================
+                                # ====================================================================
                                 # Set a headline and subhead to display on the screen if there is one
-                                #====================================================================
+                                # ====================================================================
                                 "Title": bin_type,
                                 "Subtitle": collection_date,
                             }
                         }
                     )
                 )
-        
+
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                # .ask(speak_output)
-                .response
+            .speak(speak_output)
+            .response
         )
 
 
@@ -88,9 +87,9 @@ class HelloWorldIntentHandler(AbstractRequestHandler):
 
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                # .ask("add a reprompt if you want to keep the session open for the user to respond")
-                .response
+            .speak(speak_output)
+            # .ask("add a reprompt if you want to keep the session open for the user to respond")
+            .response
         )
 
 
@@ -106,9 +105,9 @@ class HelpIntentHandler(AbstractRequestHandler):
 
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                .ask(speak_output)
-                .response
+            .speak(speak_output)
+            .ask(speak_output)
+            .response
         )
 
 
@@ -125,9 +124,10 @@ class CancelOrStopIntentHandler(AbstractRequestHandler):
 
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                .response
+            .speak(speak_output)
+            .response
         )
+
 
 class FallbackIntentHandler(AbstractRequestHandler):
     """Single handler for Fallback Intent."""
@@ -142,6 +142,7 @@ class FallbackIntentHandler(AbstractRequestHandler):
         reprompt = "I didn't catch that. What can I help you with?"
 
         return handler_input.response_builder.speak(speech).ask(reprompt).response
+
 
 class SessionEndedRequestHandler(AbstractRequestHandler):
     """Handler for Session End."""
@@ -174,9 +175,9 @@ class IntentReflectorHandler(AbstractRequestHandler):
 
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                # .ask("add a reprompt if you want to keep the session open for the user to respond")
-                .response
+            .speak(speak_output)
+            # .ask("add a reprompt if you want to keep the session open for the user to respond")
+            .response
         )
 
 
@@ -197,9 +198,9 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
 
         return (
             handler_input.response_builder
-                .speak(speak_output)
-                .ask(speak_output)
-                .response
+            .speak(speak_output)
+            .ask(speak_output)
+            .response
         )
 
 # The SkillBuilder object acts as the entry point for your skill, routing all request and response
@@ -207,7 +208,10 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
 # defined are included below. The order matters - they're processed top to bottom.
 
 
-sb = StandardSkillBuilder(table_name=os.environ.get("DYNAMODB_PERSISTENCE_TABLE_NAME"), auto_create_table=False)
+sb = StandardSkillBuilder(
+    table_name=os.environ.get("DYNAMODB_PERSISTENCE_TABLE_NAME"),
+    auto_create_table=False
+)
 
 sb.add_request_handler(LaunchRequestHandler())
 sb.add_request_handler(HelloWorldIntentHandler())
@@ -215,7 +219,8 @@ sb.add_request_handler(HelpIntentHandler())
 sb.add_request_handler(CancelOrStopIntentHandler())
 sb.add_request_handler(FallbackIntentHandler())
 sb.add_request_handler(SessionEndedRequestHandler())
-sb.add_request_handler(IntentReflectorHandler()) # make sure IntentReflectorHandler is last so it doesn't override your custom intent handlers
+# make sure IntentReflectorHandler is last so it doesn't override your custom intent handlers
+sb.add_request_handler(IntentReflectorHandler())
 
 sb.add_exception_handler(CatchAllExceptionHandler())
 
