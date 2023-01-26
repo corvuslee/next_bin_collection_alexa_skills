@@ -16,21 +16,46 @@ import os
 import boto3
 
 from ask_sdk_model.interfaces.alexa.presentation.apl import RenderDocumentDirective
-from ask_sdk_core.skill_builder import SkillBuilder
+# from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.dispatch_components import AbstractRequestHandler
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler
-from ask_sdk_core.handler_input import HandlerInput
+# from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk.standard import StandardSkillBuilder
-from ask_sdk_dynamodb.adapter import DynamoDbAdapter
-from ask_sdk_core.dispatch_components import AbstractRequestInterceptor
-from ask_sdk_core.dispatch_components import AbstractResponseInterceptor
-from ask_sdk_model import Response
+# from ask_sdk_model import Response
+
+from datetime import date, timedelta
 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-bin_type = 'Rubbish bin'
-collection_date = 'Tuesday, 2023-01-24'
+
+# DynamoDB
+ddb_table_name = os.environ.get('DYNAMODB_PERSISTENCE_TABLE_NAME')
+ddb_resource = boto3.resource('dynamodb')
+table = ddb_resource.Table(ddb_table_name)
+start_day = date.today()
+end_day = start_day + timedelta(days=7)
+id = start_day - timedelta(days=start_day.weekday())  # Start of the week
+
+res = table.get_item(
+    Key={
+        'id': str(id)
+    }
+)
+'''
+{
+    "Item": [
+        {
+            "id": "2023-01-23",
+            "collection_date": "2023-01-26",
+            "bin_type": "Recycling bin"
+        }
+    ]
+}
+'''
+
+bin_type = res['Item']['bin_type']
+collection_date = date.fromisoformat(res['Item']['collection_date']).strftime('%A, %Y-%m-%d')
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
@@ -203,15 +228,13 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
             .response
         )
 
+
 # The SkillBuilder object acts as the entry point for your skill, routing all request and response
 # payloads to the handlers above. Make sure any new handlers or interceptors you've
 # defined are included below. The order matters - they're processed top to bottom.
 
 
-sb = StandardSkillBuilder(
-    table_name=os.environ.get("DYNAMODB_PERSISTENCE_TABLE_NAME"),
-    auto_create_table=False
-)
+sb = StandardSkillBuilder()
 
 sb.add_request_handler(LaunchRequestHandler())
 sb.add_request_handler(HelloWorldIntentHandler())
@@ -221,7 +244,6 @@ sb.add_request_handler(FallbackIntentHandler())
 sb.add_request_handler(SessionEndedRequestHandler())
 # make sure IntentReflectorHandler is last so it doesn't override your custom intent handlers
 sb.add_request_handler(IntentReflectorHandler())
-
 sb.add_exception_handler(CatchAllExceptionHandler())
 
 lambda_handler = sb.lambda_handler()
