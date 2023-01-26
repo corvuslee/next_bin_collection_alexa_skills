@@ -18,11 +18,14 @@ import boto3
 from datetime import date, timedelta
 
 from ask_sdk_model.interfaces.alexa.presentation.apl import RenderDocumentDirective
+
 # from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.dispatch_components import AbstractRequestHandler
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler
+
 # from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk.standard import StandardSkillBuilder
+
 # from ask_sdk_model import Response
 
 logger = logging.getLogger(__name__)
@@ -39,8 +42,10 @@ calendar_file = "calendars/main.csv"
 write_calendar = False
 
 
-# Read from CSV file to list of dict
 def read_csv(filename):
+    """
+    Read a CSV file into a list of dictionaries
+    """
     with open(filename, newline="") as csvfile:
         reader = csv.DictReader(csvfile)
         return list(reader)
@@ -64,8 +69,11 @@ def write_calendar_to_ddb(calendar_file, enable_flag):
 
 
 def get_next_bin_collection_info(start_day):
+    """
+    Get the next bin collection info from DynamoDB
+    """
     id = start_day - timedelta(days=start_day.weekday())  # Start of the week
-    res = table.get_item(Key={"id": str(id)})
+    response = table.get_item(Key={"id": str(id)})
     """
     {
         "Item": [
@@ -78,8 +86,10 @@ def get_next_bin_collection_info(start_day):
     }
     """
     return (
-        res["Item"]["bin_type"],
-        date.fromisoformat(res["Item"]["collection_date"]).strftime("%A, %Y-%m-%d"),
+        response["Item"]["bin_type"],
+        date.fromisoformat(response["Item"]["collection_date"]).strftime(
+            "%A, %Y-%m-%d"
+        ),
     )
 
 
@@ -93,8 +103,12 @@ class LaunchRequestHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
+
+        # Write calendar to DynamoDB if it is enabled
         write_calendar_to_ddb(calendar_file, write_calendar)
+        # Get the next bin collection info
         bin_type, collection_date = get_next_bin_collection_info(start_day)
+        # Get the speech text
         speak_output = f"{bin_type} will be collected on {collection_date}"
 
         # ====================================================================
