@@ -34,28 +34,31 @@ ddb_table_name = os.environ.get('DYNAMODB_PERSISTENCE_TABLE_NAME')
 ddb_resource = boto3.resource('dynamodb')
 table = ddb_resource.Table(ddb_table_name)
 start_day = date.today()
-end_day = start_day + timedelta(days=7)
-id = start_day - timedelta(days=start_day.weekday())  # Start of the week
 
-res = table.get_item(
-    Key={
-        'id': str(id)
-    }
-)
-'''
-{
-    "Item": [
-        {
-            "id": "2023-01-23",
-            "collection_date": "2023-01-26",
-            "bin_type": "Recycling bin"
+
+def get_next_bin_collection_info(start_day):
+    id = start_day - timedelta(days=start_day.weekday())  # Start of the week
+
+    res = table.get_item(
+        Key={
+            'id': str(id)
         }
-    ]
-}
-'''
-
-bin_type = res['Item']['bin_type']
-collection_date = date.fromisoformat(res['Item']['collection_date']).strftime('%A, %Y-%m-%d')
+    )
+    '''
+    {
+        "Item": [
+            {
+                "id": "2023-01-23",
+                "collection_date": "2023-01-26",
+                "bin_type": "Recycling bin"
+            }
+        ]
+    }
+    '''
+    return (
+        res['Item']['bin_type'],
+        date.fromisoformat(res['Item']['collection_date']).strftime('%A, %Y-%m-%d')
+    )
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
@@ -67,6 +70,7 @@ class LaunchRequestHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
+        bin_type, collection_date = get_next_bin_collection_info(start_day)
         speak_output = f"{bin_type} will be collected on {collection_date}"
 
         # ====================================================================
