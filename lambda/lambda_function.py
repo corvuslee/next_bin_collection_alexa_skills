@@ -38,7 +38,7 @@ table = ddb_resource.Table(ddb_table_name)
 
 # Other variables
 start_day = date.today()
-calendar_file = 'calendars/main.csv'
+calendar_file = "calendars/main.csv"
 write_calendar = False
 
 
@@ -49,20 +49,21 @@ def read_csv(filename):
         return list(reader)
 
 
-def write_calendar_to_ddb(calendar_file):
-    # Read the calendar from CSV
-    bin_collections = read_csv(calendar_file)
-    # Get the last item in the calendar
-    last_item = bin_collections[-1]
-    # Get the last_item from DynamoDB
-    response = table.get_item(Key={"id": last_item["id"]})
-    # If response is empty, write the calendar to DynamoDB
-    if "Item" not in response:
-        # Batch write all items to DynamoDB
-        print("Writing the calendar to DynamoDB")
-        with table.batch_writer() as batch:
-            for bin_collection in bin_collections:
-                batch.put_item(Item=bin_collection)
+def write_calendar_to_ddb(calendar_file, enable_flag):
+    while enable_flag:
+        # Read the calendar from CSV
+        bin_collections = read_csv(calendar_file)
+        # Get the last item in the calendar
+        last_item = bin_collections[-1]
+        # Get the last_item from DynamoDB
+        response = table.get_item(Key={"id": last_item["id"]})
+        # If response is empty, write the calendar to DynamoDB
+        if "Item" not in response:
+            # Batch write all items to DynamoDB
+            print("Writing the calendar to DynamoDB")
+            with table.batch_writer() as batch:
+                for bin_collection in bin_collections:
+                    batch.put_item(Item=bin_collection)
 
 
 def get_next_bin_collection_info(start_day):
@@ -95,12 +96,7 @@ class LaunchRequestHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
-
-        # Manual trigger to update the calendar in DynamoDB
-        if write_calendar:
-            write_calendar_to_ddb(calendar_file)
-
-        # The main part
+        write_calendar_to_ddb(calendar_file, write_calendar)
         bin_type, collection_date = get_next_bin_collection_info(start_day)
         speak_output = f"{bin_type} will be collected on {collection_date}"
 
