@@ -12,39 +12,63 @@
 import logging
 import ask_sdk_core.utils as ask_utils
 import json
+import csv
 import os
 import boto3
+from datetime import date, timedelta
 
 from ask_sdk_model.interfaces.alexa.presentation.apl import RenderDocumentDirective
+
 # from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.dispatch_components import AbstractRequestHandler
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler
+
 # from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk.standard import StandardSkillBuilder
+
 # from ask_sdk_model import Response
-
-from datetime import date, timedelta
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# DynamoDB
-ddb_table_name = os.environ.get('DYNAMODB_PERSISTENCE_TABLE_NAME')
-ddb_resource = boto3.resource('dynamodb')
+# Connect to DynamoDB
+ddb_table_name = os.environ.get("DYNAMODB_PERSISTENCE_TABLE_NAME")
+ddb_resource = boto3.resource("dynamodb")
 table = ddb_resource.Table(ddb_table_name)
+
+# Other variables
 start_day = date.today()
+calendar_file = 'calendars/main.csv'
+write_calendar = False
+
+
+# Read from CSV file to list of dict
+def read_csv(filename):
+    with open(filename, newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        return list(reader)
+
+
+def write_calendar_to_ddb(calendar_file):
+    # Read the calendar from CSV
+    bin_collections = read_csv(calendar_file)
+    # Get the last item in the calendar
+    last_item = bin_collections[-1]
+    # Get the last_item from DynamoDB
+    response = table.get_item(Key={"id": last_item["id"]})
+    # If response is empty, write the calendar to DynamoDB
+    if "Item" not in response:
+        # Batch write all items to DynamoDB
+        print("Writing the calendar to DynamoDB")
+        with table.batch_writer() as batch:
+            for bin_collection in bin_collections:
+                batch.put_item(Item=bin_collection)
 
 
 def get_next_bin_collection_info(start_day):
     id = start_day - timedelta(days=start_day.weekday())  # Start of the week
-
-    res = table.get_item(
-        Key={
-            'id': str(id)
-        }
-    )
-    '''
+    res = table.get_item(Key={"id": str(id)})
+    """
     {
         "Item": [
             {
@@ -54,15 +78,16 @@ def get_next_bin_collection_info(start_day):
             }
         ]
     }
-    '''
+    """
     return (
-        res['Item']['bin_type'],
-        date.fromisoformat(res['Item']['collection_date']).strftime('%A, %Y-%m-%d')
+        res["Item"]["bin_type"],
+        date.fromisoformat(res["Item"]["collection_date"]).strftime("%A, %Y-%m-%d"),
     )
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
     """Handler for Skill Launch."""
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
 
@@ -70,6 +95,12 @@ class LaunchRequestHandler(AbstractRequestHandler):
 
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
+
+        # Manual trigger to update the calendar in DynamoDB
+        if write_calendar:
+            write_calendar_to_ddb(calendar_file)
+
+        # The main part
         bin_type, collection_date = get_next_bin_collection_info(start_day)
         speak_output = f"{bin_type} will be collected on {collection_date}"
 
@@ -80,8 +111,10 @@ class LaunchRequestHandler(AbstractRequestHandler):
         with open("./documents/APL_simple.json") as apl_doc:
             apl_simple = json.load(apl_doc)
 
-            if ask_utils.get_supported_interfaces(
-                    handler_input).alexa_presentation_apl is not None:
+            if (
+                ask_utils.get_supported_interfaces(handler_input).alexa_presentation_apl
+                is not None
+            ):
                 handler_input.response_builder.add_directive(
                     RenderDocumentDirective(
                         document=apl_simple,
@@ -93,19 +126,16 @@ class LaunchRequestHandler(AbstractRequestHandler):
                                 "Title": bin_type,
                                 "Subtitle": collection_date,
                             }
-                        }
+                        },
                     )
                 )
 
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            .response
-        )
+        return handler_input.response_builder.speak(speak_output).response
 
 
 class HelloWorldIntentHandler(AbstractRequestHandler):
     """Handler for Hello World Intent."""
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
         return ask_utils.is_intent_name("HelloWorldIntent")(handler_input)
@@ -115,8 +145,7 @@ class HelloWorldIntentHandler(AbstractRequestHandler):
         speak_output = "Hello World!"
 
         return (
-            handler_input.response_builder
-            .speak(speak_output)
+            handler_input.response_builder.speak(speak_output)
             # .ask("add a reprompt if you want to keep the session open for the user to respond")
             .response
         )
@@ -124,6 +153,7 @@ class HelloWorldIntentHandler(AbstractRequestHandler):
 
 class HelpIntentHandler(AbstractRequestHandler):
     """Handler for Help Intent."""
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
         return ask_utils.is_intent_name("AMAZON.HelpIntent")(handler_input)
@@ -133,8 +163,7 @@ class HelpIntentHandler(AbstractRequestHandler):
         speak_output = "You can say hello to me! How can I help?"
 
         return (
-            handler_input.response_builder
-            .speak(speak_output)
+            handler_input.response_builder.speak(speak_output)
             .ask(speak_output)
             .response
         )
@@ -142,24 +171,23 @@ class HelpIntentHandler(AbstractRequestHandler):
 
 class CancelOrStopIntentHandler(AbstractRequestHandler):
     """Single handler for Cancel and Stop Intent."""
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
-        return (ask_utils.is_intent_name("AMAZON.CancelIntent")(handler_input) or
-                ask_utils.is_intent_name("AMAZON.StopIntent")(handler_input))
+        return ask_utils.is_intent_name("AMAZON.CancelIntent")(
+            handler_input
+        ) or ask_utils.is_intent_name("AMAZON.StopIntent")(handler_input)
 
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
         speak_output = "Goodbye!"
 
-        return (
-            handler_input.response_builder
-            .speak(speak_output)
-            .response
-        )
+        return handler_input.response_builder.speak(speak_output).response
 
 
 class FallbackIntentHandler(AbstractRequestHandler):
     """Single handler for Fallback Intent."""
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
         return ask_utils.is_intent_name("AMAZON.FallbackIntent")(handler_input)
@@ -167,7 +195,9 @@ class FallbackIntentHandler(AbstractRequestHandler):
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
         logger.info("In FallbackIntentHandler")
-        speech = "Hmm, I'm not sure. You can say Hello or Help. What would you like to do?"
+        speech = (
+            "Hmm, I'm not sure. You can say Hello or Help. What would you like to do?"
+        )
         reprompt = "I didn't catch that. What can I help you with?"
 
         return handler_input.response_builder.speak(speech).ask(reprompt).response
@@ -175,6 +205,7 @@ class FallbackIntentHandler(AbstractRequestHandler):
 
 class SessionEndedRequestHandler(AbstractRequestHandler):
     """Handler for Session End."""
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
         return ask_utils.is_request_type("SessionEndedRequest")(handler_input)
@@ -193,6 +224,7 @@ class IntentReflectorHandler(AbstractRequestHandler):
     for your intents by defining them above, then also adding them to the request
     handler chain below.
     """
+
     def can_handle(self, handler_input):
         # type: (HandlerInput) -> bool
         return ask_utils.is_request_type("IntentRequest")(handler_input)
@@ -203,8 +235,7 @@ class IntentReflectorHandler(AbstractRequestHandler):
         speak_output = "You just triggered " + intent_name + "."
 
         return (
-            handler_input.response_builder
-            .speak(speak_output)
+            handler_input.response_builder.speak(speak_output)
             # .ask("add a reprompt if you want to keep the session open for the user to respond")
             .response
         )
@@ -215,6 +246,7 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
     stating the request handler chain is not found, you have not implemented a handler for
     the intent being invoked or included it in the skill builder below.
     """
+
     def can_handle(self, handler_input, exception):
         # type: (HandlerInput, Exception) -> bool
         return True
@@ -226,8 +258,7 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
         speak_output = "Sorry, I had trouble doing what you asked. Please try again."
 
         return (
-            handler_input.response_builder
-            .speak(speak_output)
+            handler_input.response_builder.speak(speak_output)
             .ask(speak_output)
             .response
         )
