@@ -18,14 +18,11 @@ import boto3
 from datetime import date, timedelta
 
 from ask_sdk_model.interfaces.alexa.presentation.apl import RenderDocumentDirective
-
 # from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.dispatch_components import AbstractRequestHandler
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler
-
 # from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk.standard import StandardSkillBuilder
-
 # from ask_sdk_model import Response
 
 logger = logging.getLogger(__name__)
