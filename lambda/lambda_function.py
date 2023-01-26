@@ -15,31 +15,31 @@ import json
 import csv
 import os
 import boto3
+import botocore
 from datetime import date, timedelta
 
 from ask_sdk_model.interfaces.alexa.presentation.apl import RenderDocumentDirective
-
-# from ask_sdk_core.skill_builder import SkillBuilder
 from ask_sdk_core.dispatch_components import AbstractRequestHandler
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler
-
-# from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk.standard import StandardSkillBuilder
-
-# from ask_sdk_model import Response
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# Connect to DynamoDB
-ddb_table_name = os.environ.get("DYNAMODB_PERSISTENCE_TABLE_NAME")
+# DynamoDB resources
 ddb_resource = boto3.resource("dynamodb")
+ddb_table_name = os.environ.get("DYNAMODB_PERSISTENCE_TABLE_NAME")
 table = ddb_resource.Table(ddb_table_name)
+
+# S3 resources
+s3_client = boto3.client("s3")
+s3_resource = boto3.resource("s3")
+bucket_name = os.environ.get("S3_PERSISTENCE_BUCKET")
+s3_key = "inbox/main.csv"
 
 # Other variables
 start_day = date.today()
-calendar_file = "calendars/main.csv"
-write_calendar = False
+calendar_file = "/tmp/main.csv"
 
 
 def read_csv(filename):
@@ -51,21 +51,48 @@ def read_csv(filename):
         return list(reader)
 
 
-def write_calendar_to_ddb(calendar_file, enable_flag):
-    while enable_flag:
-        # Read the calendar from CSV
-        bin_collections = read_csv(calendar_file)
-        # Get the last item in the calendar
-        last_item = bin_collections[-1]
-        # Get the last_item from DynamoDB
-        response = table.get_item(Key={"id": last_item["id"]})
-        # If response is empty, write the calendar to DynamoDB
-        if "Item" not in response:
-            # Batch write all items to DynamoDB
-            print("Writing the calendar to DynamoDB")
-            with table.batch_writer() as batch:
-                for bin_collection in bin_collections:
-                    batch.put_item(Item=bin_collection)
+def parse_calendar_file(bucket_name, s3_key, calendar_file):
+    """
+    Download the calendar file from S3 and parse it into a list of dictionaries
+    """
+    # Check if S3 object exists
+    try:
+        s3_client.head_object(Bucket=bucket_name, Key=s3_key)
+    except botocore.exceptions.ClientError as e:
+        if e.response["Error"]["Code"] == "404":
+            # File doesn't exist, return empty list
+            print(f'{bucket_name}/{s3_key} not found in S3')
+            return []
+        else:
+            # Something else has gone wrong.
+            raise
+    else:
+        # File exists, download it
+        s3_client.download_file(bucket_name, s3_key, calendar_file)
+        # Copy the S3 file to the processed folder
+        copy_source = {"Bucket": bucket_name, "Key": s3_key}
+        s3_resource.meta.client.copy(
+            copy_source, bucket_name, f"processed/{s3_key.split('/')[-1]}"
+        )
+        # Delete the original file
+        s3_resource.Object(bucket_name, s3_key).delete()
+        # Read the file into a list of dictionaries
+        return read_csv(calendar_file)
+
+
+def write_calendar_to_ddb(calendar_file):
+    """
+    Write the calendar file (if exists) to DynamoDB
+    """
+    # Read the calendar file
+    bin_collections = parse_calendar_file(bucket_name, s3_key, calendar_file)
+    # If there are items to write to DynamoDB
+    if bin_collections:
+        # Batch write all items to DynamoDB
+        print("Writing the calendar to DynamoDB")
+        with table.batch_writer() as batch:
+            for bin_collection in bin_collections:
+                batch.put_item(Item=bin_collection)
 
 
 def get_next_bin_collection_info(start_day):
@@ -104,8 +131,8 @@ class LaunchRequestHandler(AbstractRequestHandler):
     def handle(self, handler_input):
         # type: (HandlerInput) -> Response
 
-        # Write calendar to DynamoDB if it is enabled
-        write_calendar_to_ddb(calendar_file, write_calendar)
+        # Write calendar to DynamoDB
+        write_calendar_to_ddb(calendar_file)
         # Get the next bin collection info
         bin_type, collection_date = get_next_bin_collection_info(start_day)
         # Get the speech text
