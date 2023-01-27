@@ -38,7 +38,7 @@ bucket_name = os.environ.get("S3_PERSISTENCE_BUCKET")
 s3_key = "inbox/main.csv"
 
 # Other variables
-start_day = date.today()
+today = date.today()
 calendar_file = "/tmp/main.csv"
 
 
@@ -61,7 +61,7 @@ def parse_calendar_file(bucket_name, s3_key, calendar_file):
     except botocore.exceptions.ClientError as e:
         if e.response["Error"]["Code"] == "404":
             # File doesn't exist, return empty list
-            print(f'{bucket_name}/{s3_key} not found in S3')
+            print(f"{bucket_name}/{s3_key} not found in S3")
             return []
         else:
             # Something else has gone wrong.
@@ -95,11 +95,11 @@ def write_calendar_to_ddb(calendar_file):
                 batch.put_item(Item=bin_collection)
 
 
-def get_next_bin_collection_info(start_day):
+def get_bin_collection_info(input_date):
     """
-    Get the next bin collection info from DynamoDB
+    Get the bin collection info from DynamoDB
     """
-    id = start_day - timedelta(days=start_day.weekday())  # Start of the week
+    id = input_date - timedelta(days=input_date.weekday())  # Start of the week
     response = table.get_item(Key={"id": str(id)})
     """
     {
@@ -114,9 +114,7 @@ def get_next_bin_collection_info(start_day):
     """
     return (
         response["Item"]["bin_type"],
-        date.fromisoformat(response["Item"]["collection_date"]).strftime(
-            "%A, %Y-%m-%d"
-        ),
+        date.fromisoformat(response["Item"]["collection_date"])
     )
 
 
@@ -133,10 +131,16 @@ class LaunchRequestHandler(AbstractRequestHandler):
 
         # Write calendar to DynamoDB
         write_calendar_to_ddb(calendar_file)
-        # Get the next bin collection info
-        bin_type, collection_date = get_next_bin_collection_info(start_day)
+        # Get the bin collection info for this week
+        bin_type, collection_date = get_bin_collection_info(today)
+        # If the collection date is in the past
+        if collection_date < today:
+            # Get the bin collection info for next week
+            bin_type, collection_date = get_bin_collection_info(
+                today + timedelta(days=7)
+            )
         # Get the speech text
-        speak_output = f"{bin_type} will be collected on {collection_date}"
+        speak_output = f"{bin_type} will be collected on {collection_date.strftime('%A, %Y-%m-%d')}"
 
         # ====================================================================
         # Add a visual with Alexa Layouts
