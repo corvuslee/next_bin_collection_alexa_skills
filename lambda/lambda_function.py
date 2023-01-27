@@ -161,8 +161,8 @@ class LaunchRequestHandler(AbstractRequestHandler):
                                 # ====================================================================
                                 # Set a headline and subhead to display on the screen if there is one
                                 # ====================================================================
-                                "Title": bin_type,
-                                "Subtitle": collection_date,
+                                "Title": collection_date,
+                                "Subtitle": bin_type,
                             }
                         },
                     )
