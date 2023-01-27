@@ -33,6 +33,7 @@ A DynamoDB table in the Alexa hosted environment
 |xxx|xxx|xxx|
 |xxx|xxx|xxx|
 
+* Refer to the [sample](calendars/main.csv)
 * Save as file name `main.csv`
 * Upload to the S3 bucket: `s3://<bucket-name>/inbox/`
 * Invoke the skills once
