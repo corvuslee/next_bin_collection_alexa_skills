@@ -140,7 +140,8 @@ class LaunchRequestHandler(AbstractRequestHandler):
                 today + timedelta(days=7)
             )
         # Get the speech text
-        speak_output = f"{bin_type} will be collected on {collection_date.strftime('%A, %Y-%m-%d')}"
+        collection_date = collection_date.strftime('%A, %Y-%m-%d')
+        speak_output = f"{bin_type} will be collected on {collection_date}"
 
         # ====================================================================
         # Add a visual with Alexa Layouts
