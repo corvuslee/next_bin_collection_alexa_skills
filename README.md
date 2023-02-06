@@ -1,4 +1,6 @@
-# next_bin_collection_alexa_skills
+# Alexa skills - When's my next bin collection?
+## Where to get
+https://www.amazon.co.uk/dp/B0BTD6LS61/
 
 ## How to use
 ### Ask
