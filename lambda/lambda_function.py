@@ -112,10 +112,15 @@ def get_bin_collection_info(input_date):
         ]
     }
     """
-    return (
-        response["Item"]["bin_type"],
-        date.fromisoformat(response["Item"]["collection_date"])
-    )
+    # If Item not found in DynamoDB, return Unknown bin type and max date
+    if "Item" not in response:
+        bin_type = "Unknown bin type"
+        collection_date = date.max
+    # Otherwise, get the bin type and collection date
+    else:
+        bin_type = response["Item"]["bin_type"]
+        collection_date = date.fromisoformat(response["Item"]["collection_date"])
+    return bin_type, collection_date
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
