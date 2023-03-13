@@ -123,6 +123,18 @@ def get_bin_collection_info(input_date):
     return bin_type, collection_date
 
 
+def generate_speak_output(bin_type, collection_date):
+    """
+    Generate the sentence to speak output
+    """
+    switch = {
+        date.max: "Sorry, I cannot find the next bin collection date",
+        today + timedelta(days=1): f"{bin_type} will be collected tomorrow",
+        today: f"{bin_type} will be collected today"
+    }
+    return switch.get(collection_date, f"{bin_type} will be collected on {collection_date}")
+
+
 class LaunchRequestHandler(AbstractRequestHandler):
     """Handler for Skill Launch."""
 
@@ -137,6 +149,7 @@ class LaunchRequestHandler(AbstractRequestHandler):
         # Write calendar to DynamoDB
         write_calendar_to_ddb(calendar_file)
         # Get the bin collection info for this week
+        # bin_type, collection_date = get_bin_collection_info(today+timedelta(days=365))
         bin_type, collection_date = get_bin_collection_info(today)
         # If the collection date is in the past
         if collection_date < today:
@@ -145,8 +158,8 @@ class LaunchRequestHandler(AbstractRequestHandler):
                 today + timedelta(days=7)
             )
         # Get the speech text
-        collection_date = collection_date.strftime('%A, %Y-%m-%d')
-        speak_output = f"{bin_type} will be collected on {collection_date}"
+        collection_date = collection_date.strftime("%A, %Y-%m-%d")
+        speak_output = generate_speak_output(bin_type, collection_date)
 
         # ====================================================================
         # Add a visual with Alexa Layouts
