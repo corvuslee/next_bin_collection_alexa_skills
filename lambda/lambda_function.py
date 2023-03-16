@@ -132,7 +132,9 @@ def generate_speak_output(bin_type, collection_date):
         today + timedelta(days=1): f"{bin_type} will be collected tomorrow",
         today: f"{bin_type} will be collected today"
     }
-    return switch.get(collection_date, f"{bin_type} will be collected on {collection_date}")
+    return switch.get(collection_date,
+                      f"{bin_type} will be collected on {collection_date.strftime('%A, %Y-%m-%d')}"
+                      )
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
@@ -158,7 +160,6 @@ class LaunchRequestHandler(AbstractRequestHandler):
                 today + timedelta(days=7)
             )
         # Get the speech text
-        collection_date = collection_date.strftime("%A, %Y-%m-%d")
         speak_output = generate_speak_output(bin_type, collection_date)
 
         # ====================================================================
@@ -180,7 +181,7 @@ class LaunchRequestHandler(AbstractRequestHandler):
                                 # ====================================================================
                                 # Set a headline and subhead to display on the screen if there is one
                                 # ====================================================================
-                                "Title": collection_date,
+                                "Title": collection_date.strftime("%A, %Y-%m-%d"),
                                 "Subtitle": bin_type,
                             }
                         },
