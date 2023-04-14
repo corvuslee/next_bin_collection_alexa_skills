@@ -23,8 +23,7 @@
         "items": [
             {
                 "type": "AlexaHeadline",
-                "primaryText": "${payload.myData.Title}",
-                "secondaryText": "${payload.myData.Subtitle}"
+                "primaryText": "${payload.myData.Title}<br>${payload.myData.Subtitle}"
             }
         ]
     }
